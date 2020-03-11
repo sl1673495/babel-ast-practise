@@ -3,7 +3,12 @@ const { default: traverse } = require("@babel/traverse");
 const { default: generate } = require("@babel/generator");
 const t = require("@babel/types");
 
-const ast = parse("import { Image, Button } from 'components'", {
+/**
+ * 本例子是根据公司真实需求改编，
+ * 从组件库引入中删除某个引入，转而使用自定义的引入。
+ * 注意做好判断，防止insertAfter后继续visit新生成的节点导致死循环。
+ */
+const ast = parse("import { Image, Button } from 'trnw-components'", {
   sourceType: "module"
 });
 
@@ -13,7 +18,7 @@ const visitor = {
       ImportSpecifier(path) {
         if (
           path.node.local.name === "Image" &&
-          importPath.node.source.value === "components"
+          importPath.node.source.value === "trnw-components"
         ) {
           path.remove();
           importPath.insertAfter(
