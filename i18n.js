@@ -63,13 +63,10 @@ function findLastImportNodeIndex(body) {
   return index
 }
 
-// 匹配中文对应的key替换
-function replacei18Text(node) {
-  const { value } = node
+// 找到i18n对应的key
+function findI18nKey(value) {
   const matchKey = reverseCnMap[value]
-  if (matchKey) {
-    node.value = `t(${matchKey})`
-  }
+  return matchKey
 }
 
 // 生成一条import语句对应的node
@@ -98,10 +95,29 @@ traverse(ast, {
       makeImportDeclaration("t", "react-intl"),
     )
   },
-  "JSXText|Literal"(path) {
+  JSXText(path) {
     const { node } = path
-    replacei18Text(node)
+    const i18nKey = findI18nKey(node.value)
+    if (i18nKey) {
+      node.value = '{t(i18nKey)}'
+    }
   },
+  Literal(path) {
+    const { node } = path
+    const { value } = node
+    const i18nKey = findI18nKey(value)
+    console.log('i18nKey: ', i18nKey);
+    if (i18nKey) {
+      if (t.isStringLiteral(node)) {
+        path.replaceWith(
+          t.callExpression(
+            t.identifier('t'),
+            [t.stringLiteral(i18nKey)]
+          )
+        )
+      }
+    }
+  }
 })
 
 const { code } = generate(ast)
