@@ -34,3 +34,8 @@ traverse(ast, {
 });
 const { code } = generate(ast);
 console.log(code);
+
+/**
+import { Button } from 'trnw-components';
+import { Image } from "@/components";
+ */
