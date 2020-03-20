@@ -106,3 +106,24 @@ traverse(ast, {
 
 const { code } = generate(ast)
 console.log("code: ", code)
+
+/**
+import React from 'react';
+import { Button, Toast } from 'components';
+import { t } from "react-intl";
+
+const Comp = props => {
+  const tips = () => {
+    Toast.info("t(tips)");
+    Toast({
+      text: "t(tips)"
+    });
+  };
+
+  return <div>
+      <Button onClick={tips}>t(btn)</Button>
+    </div>;
+};
+
+export default Comp;
+ */
