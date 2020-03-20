@@ -99,14 +99,13 @@ traverse(ast, {
     const { node } = path
     const i18nKey = findI18nKey(node.value)
     if (i18nKey) {
-      node.value = '{t(i18nKey)}'
+      node.value = `{t("${i18nKey}")}`
     }
   },
   Literal(path) {
     const { node } = path
     const { value } = node
     const i18nKey = findI18nKey(value)
-    console.log('i18nKey: ', i18nKey);
     if (i18nKey) {
       if (t.isStringLiteral(node)) {
         path.replaceWith(
@@ -121,7 +120,7 @@ traverse(ast, {
 })
 
 const { code } = generate(ast)
-console.log("code: ", code)
+console.log(code)
 
 /**
 import React from 'react';
@@ -130,14 +129,14 @@ import { t } from "react-intl";
 
 const Comp = props => {
   const tips = () => {
-    Toast.info("t(tips)");
+    Toast.info(t("tips"));
     Toast({
-      text: "t(tips)"
+      text: t("tips")
     });
   };
 
   return <div>
-      <Button onClick={tips}>t(btn)</Button>
+      <Button onClick={tips}>{t("btn")}</Button>
     </div>;
 };
 
