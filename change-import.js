@@ -12,7 +12,7 @@ const ast = parse("import { Image, Button } from 'trnw-components'", {
   sourceType: "module"
 });
 
-const visitor = {
+traverse(ast, {
   ImportDeclaration(importPath) {
     importPath.traverse({
       ImportSpecifier(path) {
@@ -31,8 +31,6 @@ const visitor = {
       }
     });
   }
-};
-
-traverse(ast, visitor);
+});
 const { code } = generate(ast);
 console.log(code);
