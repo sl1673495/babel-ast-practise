@@ -1,6 +1,7 @@
 const { parse } = require("@babel/parser")
 const { default: traverse } = require("@babel/traverse")
 const { default: generate } = require("@babel/generator")
+const template = require("babel-template")
 
 const t = require("@babel/types")
 
@@ -8,16 +9,22 @@ const i18Source = {
   en: {
     tips: "this is tips",
     btn: "this is button",
+    popover: "popover tooltips",
   },
   zh: {
     tips: "这是一段提示",
     btn: "这是按钮",
+    popover: "气泡提示",
   },
 }
 
+const I18_LIB = 'react-intl'
+const I18_HOOK = 'useI18n'
+const I18_FUNC = 't'
+
 const component = `
 import React from 'react'
-import { Button, Toast } from 'components'
+import { Button, Toast, Popover } from 'components'
 
 const Comp = (props) => {
   const tips = () => {
@@ -30,6 +37,7 @@ const Comp = (props) => {
   return (
     <div>
       <Button onClick={tips}>这是按钮</Button>
+      <Popover tooltip='气泡提示' />
     </div>
   )
 }
@@ -48,20 +56,7 @@ function makeReverseMap(map) {
 
 const reverseCnMap = makeReverseMap(i18Source.zh)
 
-// 找到代码中最后一个import语句的位置
-function findLastImportNodeIndex(body) {
-  let index
-  for (let i = 0; i < body.length; i++) {
-    const node = body[i]
-    if (node.type === "ImportDeclaration") {
-      index = i
-    } else {
-      // 小优化 import一定在顶部
-      return index
-    }
-  }
-  return index
-}
+const buildDestructFunction = template(`const { VALUE } = SOURCE`)
 
 // 找到i18n对应的key
 function findI18nKey(value) {
@@ -77,6 +72,10 @@ function makeImportDeclaration(value, source) {
   )
 }
 
+function makeCallExpression(key, value) {
+  return t.callExpression(t.identifier(key), [t.stringLiteral(value)])
+}
+
 // 生成ast
 const ast = parse(component, {
   sourceType: "module",
@@ -86,37 +85,43 @@ const ast = parse(component, {
 // 遍历ast
 traverse(ast, {
   Program(path) {
-    const { body } = path.node
-    const lastImportIndex = findLastImportNodeIndex(body)
-    body.splice(
-      // 往最后一个import的下面插入导入i18n的语句
-      lastImportIndex + 1,
-      0,
-      makeImportDeclaration("t", "react-intl"),
-    )
+    path.get("body.0").insertAfter(makeImportDeclaration(I18_HOOK, I18_LIB))
   },
   JSXText(path) {
     const { node } = path
     const i18nKey = findI18nKey(node.value)
     if (i18nKey) {
-      node.value = `{t("${i18nKey}")}`
+      node.value = `{${I18_FUNC}("${i18nKey}")}`
+    }
+  },
+  JSXElement(path) {
+    const functionParent = path.getFunctionParent()
+    const functionBody = functionParent.node.body.body
+    if (!this.hasInsertUseI18n) {
+      functionBody.unshift(
+        buildDestructFunction({
+          VALUE: t.identifier(I18_FUNC),
+          SOURCE: t.callExpression(t.identifier(I18_HOOK), []),
+        }),
+      )
+      this.hasInsertUseI18n = true
     }
   },
   Literal(path) {
     const { node } = path
-    const { value } = node
-    const i18nKey = findI18nKey(value)
+    const i18nKey = findI18nKey(node.value)
     if (i18nKey) {
-      if (t.isStringLiteral(node)) {
+      if (path.parent.type === "JSXAttribute") {
         path.replaceWith(
-          t.callExpression(
-            t.identifier('t'),
-            [t.stringLiteral(i18nKey)]
-          )
+          t.jsxExpressionContainer(makeCallExpression(I18_FUNC, i18nKey)),
         )
+      } else {
+        if (t.isStringLiteral(node)) {
+          path.replaceWith(makeCallExpression(I18_FUNC, i18nKey))
+        }
       }
     }
-  }
+  },
 })
 
 const { code } = generate(ast)
