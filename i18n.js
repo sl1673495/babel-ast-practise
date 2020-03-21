@@ -45,7 +45,7 @@ const Comp = (props) => {
 export default Comp
 `
 
-// 把map的key-value反过来，用来匹配中文对应的key。
+// 把map的key-value反过来 用来匹配中文对应的key。
 function makeReverseMap(map) {
   const reverse = {}
   for (let key in map) {
@@ -56,6 +56,7 @@ function makeReverseMap(map) {
 
 const reverseCnMap = makeReverseMap(i18Source.zh)
 
+// 构建一个解构的模板
 const buildDestructFunction = template(`const { VALUE } = SOURCE`)
 
 // 找到i18n对应的key
@@ -64,7 +65,7 @@ function findI18nKey(value) {
   return matchKey
 }
 
-// 生成一条import语句对应的node
+// 生成一条import语句 import { foo } from 'bar'
 function makeImportDeclaration(value, source) {
   return t.importDeclaration(
     [t.importSpecifier(t.identifier(value), t.identifier(value))],
@@ -72,6 +73,7 @@ function makeImportDeclaration(value, source) {
   )
 }
 
+// 生成函数调用 t(key)
 function makeCallExpression(key, value) {
   return t.callExpression(t.identifier(key), [t.stringLiteral(value)])
 }
@@ -85,15 +87,10 @@ const ast = parse(component, {
 // 遍历ast
 traverse(ast, {
   Program(path) {
+    // i18n的import导入 一般第一项一定是import React 所以直接插入在后面就可以
     path.get("body.0").insertAfter(makeImportDeclaration(I18_HOOK, I18_LIB))
   },
-  JSXText(path) {
-    const { node } = path
-    const i18nKey = findI18nKey(node.value)
-    if (i18nKey) {
-      node.value = `{${I18_FUNC}("${i18nKey}")}`
-    }
-  },
+  // 通过找到第一个jsxElement 来向上寻找Component函数并且插入i18n的hook函数
   JSXElement(path) {
     const functionParent = path.getFunctionParent()
     const functionBody = functionParent.node.body.body
@@ -107,6 +104,15 @@ traverse(ast, {
       this.hasInsertUseI18n = true
     }
   },
+  // jsx中的文字 直接替换成{t(key)}的形式
+  JSXText(path) {
+    const { node } = path
+    const i18nKey = findI18nKey(node.value)
+    if (i18nKey) {
+      node.value = `{${I18_FUNC}("${i18nKey}")}`
+    }
+  },
+  // Literal找到的可能是函数中调用参数的文字 也可能是jsx属性中的文字
   Literal(path) {
     const { node } = path
     const i18nKey = findI18nKey(node.value)
@@ -129,10 +135,14 @@ console.log(code)
 
 /**
 import React from 'react';
-import { Button, Toast } from 'components';
-import { t } from "react-intl";
+import { useI18n } from "react-intl";
+import { Button, Toast, Popover } from 'components';
 
 const Comp = props => {
+  const {
+    t
+  } = useI18n();
+
   const tips = () => {
     Toast.info(t("tips"));
     Toast({
@@ -142,6 +152,7 @@ const Comp = props => {
 
   return <div>
       <Button onClick={tips}>{t("btn")}</Button>
+      <Popover tooltip={t("popover")} />
     </div>;
 };
 
